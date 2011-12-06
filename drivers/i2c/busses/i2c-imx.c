@@ -124,6 +124,7 @@ struct imx_i2c_struct {
 	int			stopped;
 	unsigned int		ifdr; /* IMX_I2C_IFDR */
 	unsigned int		cur_clk;
+	int 			(*reset)(struct device *dev);
 };
 
 /** Functions for IMX I2C adapter driver ***************************************
@@ -252,6 +253,10 @@ static int i2c_imx_start(struct imx_i2c_struct *i2c_imx)
 
 	/* Wait controller to be stable */
 	udelay(50);
+
+	/* Check if bus is busy (hung if not multi-master) and issue reset */
+	if (i2c_imx->reset && i2c_imx->reset(&i2c_imx->adapter.dev))
+		return -ETIMEDOUT;
 
 	/* Start I2C transaction */
 	temp = readb(i2c_imx->base + IMX_I2C_I2CR);
@@ -541,6 +546,7 @@ static int __init i2c_imx_probe(struct platform_device *pdev)
 	i2c_imx->irq			= irq;
 	i2c_imx->base			= base;
 	i2c_imx->res			= res;
+	i2c_imx->reset			= pdata->reset;
 
 	/* Get I2C clock */
 	i2c_imx->clk = clk_get(&pdev->dev, "i2c_clk");
