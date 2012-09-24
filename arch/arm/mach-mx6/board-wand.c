@@ -20,6 +20,7 @@
 #include <asm/mach-types.h>
 #include <asm/mach/arch.h>
 #include <asm/mach/time.h>
+#include <asm/setup.h>
 
 #include <linux/clk.h>
 #include <linux/delay.h>
@@ -36,6 +37,7 @@
 #include <mach/iomux-mx6q.h>
 #include <mach/iomux-v3.h>
 #include <mach/mx6.h>
+
 
 #include "crm_regs.h"
 #include "devices-imx6q.h"
@@ -1201,20 +1203,16 @@ static struct sys_timer wand_timer = {
 static void __init wand_reserve(void)
 {
 	phys_addr_t phys;
+	struct meminfo *mi = &meminfo;
+	unsigned long total_mem = 0;
+	int i;
 
 	if (wand_gpu_pdata.reserved_mem_size) {
-		if (cpu_is_mx6q())
-			phys = memblock_alloc_base(
+		for (i = 0; i < mi->nr_banks; i++)
+			total_mem += mi->bank[i].size;
+		phys = memblock_alloc_base(
 				wand_gpu_pdata.reserved_mem_size,
-				SZ_4K, SZ_2G);
-		else if (cpu_is_mx6dl())
-			phys = memblock_alloc_base(
-				wand_gpu_pdata.reserved_mem_size,
-				SZ_4K, SZ_1G);
-		else
-			phys = memblock_alloc_base(
-				wand_gpu_pdata.reserved_mem_size,
-				SZ_4K, SZ_512M);
+				SZ_4K, total_mem);
 		memblock_remove(phys, wand_gpu_pdata.reserved_mem_size);
 		wand_gpu_pdata.reserved_mem_base = phys;
 	}
