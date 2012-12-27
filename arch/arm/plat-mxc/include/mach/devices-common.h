@@ -705,3 +705,4 @@ struct platform_device *__init imx_add_fsl_csi(
 		const struct imx_fsl_csi_data *data);
 
 #endif
+

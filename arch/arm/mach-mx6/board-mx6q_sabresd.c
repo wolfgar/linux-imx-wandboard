@@ -1629,6 +1629,9 @@ static struct platform_pwm_backlight_data mx6_sabresd_pwm_backlight_data = {
 static struct mxc_dvfs_platform_data sabresd_dvfscore_data = {
 	.reg_id = "VDDCORE",
 	.soc_id	= "VDDSOC",
+	.reg_id = "cpu_vddgp",
+	.soc_id = "cpu_vddsoc",
+	.pu_id = "cpu_vddvpu",
 	.clk1_id = "cpu_clk",
 	.clk2_id = "gpc_dvfs_clk",
 	.gpc_cntr_offset = MXC_GPC_CNTR_OFFSET,
@@ -1845,6 +1848,14 @@ static void __init mx6_sabresd_board_init(void)
 	imx6q_add_dma();
 
 	imx6q_add_dvfs_core(&sabresd_dvfscore_data);
+
+	if (imx_ion_data.heaps[0].size)
+		imx6q_add_ion(0, &imx_ion_data,
+			sizeof(imx_ion_data) + sizeof(struct ion_platform_heap));
+
+#ifndef CONFIG_MX6_INTER_LDO_BYPASS
+	mx6_cpu_regulator_init();
+#endif
 	imx6q_add_device_buttons();
 
 	/* enable sensor 3v3 and 1v8 */
