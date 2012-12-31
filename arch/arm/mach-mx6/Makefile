@@ -30,3 +30,5 @@ obj-$(CONFIG_MACH_IMX_BLUETOOTH_RFKILL) += mx6_bt_rfkill.o
 obj-$(CONFIG_PCI_MSI) += msi.o
 obj-$(CONFIG_USB_FSL_ARC_OTG) += usb_dr.o
 obj-$(CONFIG_MACH_WANDBOARD) += board-wand.o
+obj-$(CONFIG_WANDBOARD_BASE) += baseboard-wand.o
+
