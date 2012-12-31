@@ -247,6 +247,7 @@ static int imx_3stack_sgtl5000_init(struct snd_soc_pcm_runtime *rtd)
 
 	snd_soc_dapm_disable_pin(&codec->dapm, "Line In Jack");
 	snd_soc_dapm_enable_pin(&codec->dapm, "Headphone Jack");
+	snd_soc_dapm_disable_pin(&codec->dapm, "Ext Spk");
 	snd_soc_dapm_sync(&codec->dapm);
 
 	if (hs_jack_gpios[0].gpio != -1) {
