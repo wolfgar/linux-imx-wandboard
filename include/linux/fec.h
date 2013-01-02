@@ -24,6 +24,7 @@ struct fec_platform_data {
 #ifdef CONFIG_MX6_ENET_IRQ_TO_GPIO
 	unsigned int gpio_irq;
 #endif
+        u32 phy_noscan_mask;
 };
 
 #endif
