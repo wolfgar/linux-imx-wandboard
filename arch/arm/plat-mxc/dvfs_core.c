@@ -586,6 +586,9 @@ static void dvfs_core_work_handler(struct work_struct *work)
 	int ret = 0;
 	int low_freq_bus_ready = 0;
 	int bus_incr = 0, cpu_dcr = 0;
+#ifdef CONFIG_ARCH_MX5
+	int disable_dvfs_irq = 0;
+#endif
 	int cpu;
 
 	low_freq_bus_ready = low_freq_bus_used();
