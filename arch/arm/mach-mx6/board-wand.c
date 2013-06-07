@@ -29,6 +29,7 @@
 #include <linux/memblock.h>
 #include <linux/phy.h>
 
+#include <mach/ahci_sata.h>
 #include <mach/common.h>
 #include <mach/devices-common.h>
 #include <mach/gpio.h>
@@ -897,6 +898,90 @@ static void __init wand_init_pcie(void) {
 }
 
 
+/****************************************************************************
+ *                                                                          
+ * AHCI - SATA
+ *                                                                          
+ ****************************************************************************/
+
+static struct clk *wand_sata_clk;
+
+/* HW Initialization, if return 0, initialization is successful. */
+static int wand_sata_init(struct device *dev, void __iomem *addr) {
+	u32 tmpdata;
+	int ret = 0;
+	struct clk *clk;
+
+        wand_sata_clk = clk_get(dev, "imx_sata_clk");
+	if (IS_ERR(wand_sata_clk)) {
+		dev_err(dev, "no sata clock.\n");
+		return PTR_ERR(wand_sata_clk);
+	}
+	ret = clk_enable(wand_sata_clk);
+	if (ret) {
+		dev_err(dev, "can't enable sata clock.\n");
+		goto put_sata_clk;
+	}
+
+	/* Set PHY Paremeters, two steps to configure the GPR13,
+	 * one write for rest of parameters, mask of first write is 0x07FFFFFD,
+	 * and the other one write for setting the mpll_clk_off_b
+	 *.rx_eq_val_0(iomuxc_gpr13[26:24]),
+	 *.los_lvl(iomuxc_gpr13[23:19]),
+	 *.rx_dpll_mode_0(iomuxc_gpr13[18:16]),
+	 *.sata_speed(iomuxc_gpr13[15]),
+	 *.mpll_ss_en(iomuxc_gpr13[14]),
+	 *.tx_atten_0(iomuxc_gpr13[13:11]),
+	 *.tx_boost_0(iomuxc_gpr13[10:7]),
+	 *.tx_lvl(iomuxc_gpr13[6:2]),
+	 *.mpll_ck_off(iomuxc_gpr13[1]),
+	 *.tx_edgerate_0(iomuxc_gpr13[0]),
+	 */
+	tmpdata = readl(IOMUXC_GPR13);
+	writel(((tmpdata & ~0x07FFFFFD) | 0x0593A044), IOMUXC_GPR13);
+
+	/* enable SATA_PHY PLL */
+	tmpdata = readl(IOMUXC_GPR13);
+	writel(((tmpdata & ~0x2) | 0x2), IOMUXC_GPR13);
+
+	/* Get the AHB clock rate, and configure the TIMER1MS reg later */
+	clk = clk_get(NULL, "ahb");
+	if (IS_ERR(clk)) {
+		dev_err(dev, "no ahb clock.\n");
+		ret = PTR_ERR(clk);
+		goto release_sata_clk;
+	}
+	tmpdata = clk_get_rate(clk) / 1000;
+	clk_put(clk);
+
+	ret = sata_init(addr, tmpdata);
+	if (ret == 0)
+		return ret;
+
+release_sata_clk:
+	clk_disable(wand_sata_clk);
+put_sata_clk:
+	clk_put(wand_sata_clk);
+
+	return ret;
+}
+
+static void wand_sata_exit(struct device *dev) {
+	clk_disable(wand_sata_clk);
+	clk_put(wand_sata_clk);
+}
+
+static struct ahci_platform_data wand_sata_data = {
+	.init = wand_sata_init,
+	.exit = wand_sata_exit,
+};
+
+
+static __init void wand_init_sata(void) {
+        imx6q_add_ahci(0, &wand_sata_data);
+}
+
+
 /*****************************************************************************
  *                                                                           
  * Init clocks and early boot console                                      
@@ -958,6 +1043,8 @@ static void __init wand_board_init(void) {
 	wand_init_spi();
 	wand_init_gpu();
 	wand_init_pcie();
+        if (cpu_is_mx6q())
+                wand_init_sata();
 }
 
 /* ------------------------------------------------------------------------ */

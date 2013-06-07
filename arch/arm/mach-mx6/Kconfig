@@ -344,6 +344,7 @@ config MACH_WANDBOARD
 	select ZONE_DMA if ION=n
 	select IMX_HAVE_PLATFORM_LDB if FB_MXC_LDB
 	select IMX_HAVE_PLATFORM_IMX_VDOA if MXC_IPU_V3
+        select IMX_HAVE_PLATFORM_AHCI if SATA_AHCI_PLATFORM
 	help
 	  Include support for the WandBoard SoM.
 
