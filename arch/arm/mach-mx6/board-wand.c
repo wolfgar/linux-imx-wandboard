@@ -31,7 +31,6 @@
 
 #include <mach/ahci_sata.h>
 #include <mach/common.h>
-//#include <mach/devices-common.h>
 #include <mach/gpio.h>
 #include <mach/iomux-mx6dl.h>
 #include <mach/iomux-mx6q.h>
@@ -64,6 +63,10 @@
 #define WAND_WL_REG_ON		IMX_GPIO_NR(1, 26)
 #define WAND_WL_HOST_WAKE	IMX_GPIO_NR(1, 29)
 #define WAND_WL_WAKE		IMX_GPIO_NR(1, 30)
+
+#define WAND_MIPICSI_PWN	IMX_GPIO_NR(1, 6)
+#define WAND_MIPICSI_RESET	IMX_GPIO_NR(4, 14)
+
 
 /* Syntactic sugar for pad configuration */
 #define IMX6_SETUP_PAD(p) \
@@ -438,10 +441,10 @@ static __init void wand_init_usb(void) {
 static struct imx_ipuv3_platform_data wand_ipu_data[] = {
 	{
 		.rev		= 4,
-		.csi_clk[0]	= "ccm_clk0",
+		.csi_clk[0]	= "clko2_clk",
 	}, {
 		.rev		= 4,
-		.csi_clk[0]	= "ccm_clk0",
+		.csi_clk[0]	= "clko2_clk",
 	},
 };
 
@@ -510,6 +513,132 @@ static void wand_init_hdmi(void) {
 	mxc_iomux_set_gpr_register(0, 0, 1, 1);
 }
 
+/****************************************************************************
+ *
+ * MIPI CSI
+ *
+ ****************************************************************************/
+static void wand_mipi_sensor_io_init(void) {
+	
+	struct clk *mipi_csi_mclk;
+
+	IMX6_SETUP_PAD( GPIO_3__CCM_CLKO2 );	/* Camera clock */
+	IMX6_SETUP_PAD( KEY_COL4__GPIO_4_14 );  /* Camera reset */
+        IMX6_SETUP_PAD( GPIO_6__GPIO_1_6 );     /* Camera power down */
+        
+        pr_debug("%s\n", __func__);
+        
+        gpio_request(WAND_MIPICSI_RESET, "cam-reset");
+	gpio_direction_output(WAND_MIPICSI_RESET, 1);
+
+        gpio_request(WAND_MIPICSI_PWN, "cam-pwdn");
+        gpio_direction_output(WAND_MIPICSI_PWN, 1);
+
+        int rate;
+
+	/* Master clock for the sensor */
+        mipi_csi_mclk = clk_get(NULL, "clko2_clk");
+        if (IS_ERR(mipi_csi_mclk)) {
+                pr_err("can't get CLKO2 clock.\n");
+                return PTR_ERR(mipi_csi_mclk);
+        }
+        
+	rate = clk_round_rate(mipi_csi_mclk, 24000000);
+        clk_set_rate(mipi_csi_mclk, rate);
+	clk_enable(mipi_csi_mclk);	
+
+	msleep(5);
+	/* Power up */
+	gpio_set_value(WAND_MIPICSI_PWN, 0);
+	msleep(5);
+	/* Reset on */
+	gpio_set_value(WAND_MIPICSI_RESET, 0);
+	msleep(1);
+	/* Reset off */
+	gpio_set_value(WAND_MIPICSI_RESET, 1);
+	msleep(5);
+	/* power down */
+	gpio_set_value(WAND_MIPICSI_PWN, 1);       
+
+	/* For MX6Q:
+	 * GPR1 bit19 and bit20 meaning:
+	 * Bit19:       0 - Enable mipi to IPU1 CSI0
+	 *                      virtual channel is fixed to 0
+	 *              1 - Enable parallel interface to IPU1 CSI0
+	 * Bit20:       0 - Enable mipi to IPU2 CSI1
+	 *                      virtual channel is fixed to 3
+	 *              1 - Enable parallel interface to IPU2 CSI1
+	 * IPU1 CSI1 directly connect to mipi csi2,
+	 *      virtual channel is fixed to 1
+	 * IPU2 CSI0 directly connect to mipi csi2,
+	 *      virtual channel is fixed to 2
+	 *
+	 * For MX6DL:
+	 * GPR13 bit 0-2 IPU_CSI0_MUX
+	 *   000 MIPI_CSI0
+	 *   100 IPU CSI0
+	 */
+
+	if (cpu_is_mx6q())
+		mxc_iomux_set_gpr_register(1, 19, 1, 1);
+	else if (cpu_is_mx6dl())
+		mxc_iomux_set_gpr_register(13, 0, 3, 0);
+}
+
+static void wand_mipi_powerdown(int powerdown)
+{
+	pr_debug("%s: powerdown=%d\n", __func__,powerdown);
+	
+	if (powerdown)
+		gpio_set_value(WAND_MIPICSI_PWN, 1); /* Power off */
+	else 
+		gpio_set_value(WAND_MIPICSI_PWN, 0); /* Power on */
+
+	msleep(2);
+}
+
+/* Platform data for CSI sensor driver, passed to driver 
+   through i2c platform data */
+static struct fsl_mxc_camera_platform_data wand_mipi_csi2_data = {
+	.mclk = 24000000,
+	.mclk_source = 0,
+	.csi = 0,  
+	.io_init = wand_mipi_sensor_io_init,
+	.pwdn = wand_mipi_powerdown,
+};
+
+/* TODO - reorg code so that adding i2c board info is done all in one
+   step at init.  This makes adding I2C devices easier */
+static struct i2c_board_info wand_mipi_csi_i2c_board_info[] __initdata = {
+	{
+		I2C_BOARD_INFO("ov5640_mipi", 0x3C),
+		.platform_data = (void*)&wand_mipi_csi2_data,
+	},
+};
+
+/* Platform data for MIPI CSI init */
+static struct mipi_csi2_platform_data wand_mipi_csi2_platform_data = {
+	.ipu_id	 = 0,
+	.csi_id = 0, 
+	.v_channel = 0,
+	.lanes = 2,
+	.dphy_clk = "mipi_pllref_clk",
+	.pixel_clk = "emi_clk",
+};
+
+/* Wandboard MIPI CSI init function */
+static void __init wand_init_mipi_csi(void){
+
+	pr_debug("%s\n", __func__);
+	
+	/* Add CSI2 */
+	imx6q_add_mipi_csi2(&wand_mipi_csi2_platform_data);
+	
+	/* Register MIPI CSI I2C board info.  This sits on I2C2, which
+	   is i2c device index 1 */
+	i2c_register_board_info(1, wand_mipi_csi_i2c_board_info,
+		ARRAY_SIZE(wand_mipi_csi_i2c_board_info));
+}
 
 /****************************************************************************
  *                                                                          
@@ -1024,7 +1153,19 @@ static void __init wand_reserve(void) {
  *                                                                            
  *****************************************************************************/
 
+static struct fsl_mxc_capture_platform_data capture_data[] = {
+#if defined(CONFIG_MXC_CAMERA_OV5640_MIPI) || defined(CONFIG_MXC_CAMERA_OV5640_MIPI_MODULE)
+	{
+		.ipu = 0,
+		.csi = 0,
+		.mclk_source = 0,
+		.is_mipi = 1,
+	},
+#endif
+};
+
 static void __init wand_board_init(void) {
+	int i;
 	wand_init_dma();
 	wand_init_uart();
 	wand_init_sd();
@@ -1034,6 +1175,12 @@ static void __init wand_board_init(void) {
 	wand_init_usb();
 	wand_init_ipu();
 	wand_init_hdmi();
+	for (i = 0; i < ARRAY_SIZE(capture_data); i++) {
+		if (!cpu_is_mx6q())
+			capture_data[i].ipu = 0;
+		imx6q_add_v4l2_capture(i, &capture_data[i]);
+	}
+        wand_init_mipi_csi();
 	wand_init_lcd();
 	wand_init_wifi();
 	wand_init_bluetooth();

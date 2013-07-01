@@ -39,6 +39,9 @@ void set_mclk_rate(uint32_t *p_mclk_freq, uint32_t csi)
 	uint32_t freq = 0;
 	char *mclk;
 
+	/*FIXME remove this comment in production */
+	pr_debug("%s: entered\n",__func__);
+
 	if (cpu_is_mx53()) {
 		if (csi == 0)
 			mclk = "ssi_ext1_clk";
@@ -48,8 +51,11 @@ void set_mclk_rate(uint32_t *p_mclk_freq, uint32_t csi)
 		}
 	} else if (cpu_is_mx6q() || cpu_is_mx6dl()) {
 		if (csi == 0) {
-			if (machine_is_mx6q_sabrelite())
+			if (machine_is_mx6q_sabrelite() ||
+			    machine_is_wandboard()) {
+				pr_debug("%s: Clock is clko2_clk\n",__func__);
 				mclk = "clko2_clk";
+			}
 			else
 				mclk = "clko_clk";
 		} else {
