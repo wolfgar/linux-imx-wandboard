@@ -256,7 +256,7 @@ struct mxc_audio_platform_data wand_audio_channel_data = {
 EXPORT_SYMBOL_GPL(wand_audio_channel_data); /* TODO: edm naming? */
 
 /* ------------------------------------------------------------------------ */
-
+#ifdef CONFIG_SND_SOC_IMX_SPDIF
 static int wand_set_spdif_clk_rate(struct clk *clk, unsigned long rate) {
 	unsigned long rate_actual;
 	rate_actual = clk_round_rate(clk, rate);
@@ -278,7 +278,7 @@ static struct mxc_spdif_platform_data wand_spdif = {
 	.spdif_clk_set_rate	= wand_set_spdif_clk_rate,
 	.spdif_clk		= NULL, /* spdif bus clk */
 };
-
+#endif
 /* ------------------------------------------------------------------------ */
 
 static struct imx_ssi_platform_data wand_ssi_pdata = {
@@ -295,27 +295,28 @@ static struct imx_asrc_platform_data wand_asrc_data = {
 /* ------------------------------------------------------------------------ */
 
 void __init wand_init_audio(void) {
-        IMX6_SETUP_PAD( CSI0_DAT4__AUDMUX_AUD3_TXC );
-        IMX6_SETUP_PAD( CSI0_DAT5__AUDMUX_AUD3_TXD );
-        IMX6_SETUP_PAD( CSI0_DAT6__AUDMUX_AUD3_TXFS );
-        IMX6_SETUP_PAD( CSI0_DAT7__AUDMUX_AUD3_RXD );
-        IMX6_SETUP_PAD( GPIO_0__CCM_CLKO );
-        
-        /* Sample rate converter is added together with audio */
-        wand_asrc_data.asrc_core_clk = clk_get(NULL, "asrc_clk");
-        wand_asrc_data.asrc_audio_clk = clk_get(NULL, "asrc_serial_clk");
+	IMX6_SETUP_PAD( CSI0_DAT4__AUDMUX_AUD3_TXC );
+	IMX6_SETUP_PAD( CSI0_DAT5__AUDMUX_AUD3_TXD );
+	IMX6_SETUP_PAD( CSI0_DAT6__AUDMUX_AUD3_TXFS );
+	IMX6_SETUP_PAD( CSI0_DAT7__AUDMUX_AUD3_RXD );
+	IMX6_SETUP_PAD( GPIO_0__CCM_CLKO );
+	
+	/* Sample rate converter is added together with audio */
+	wand_asrc_data.asrc_core_clk = clk_get(NULL, "asrc_clk");
+	wand_asrc_data.asrc_audio_clk = clk_get(NULL, "asrc_serial_clk");
 	imx6q_add_asrc(&wand_asrc_data);
 
 	imx6q_add_imx_ssi(1, &wand_ssi_pdata);
-	/* Enable SPDIF */
-
-        IMX6_SETUP_PAD( ENET_RXD0__SPDIF_OUT1);
+	/* Enable SPDIF if needed */
+#ifdef CONFIG_SND_SOC_IMX_SPDIF
+	IMX6_SETUP_PAD( ENET_RXD0__SPDIF_OUT1);
 
 	wand_spdif.spdif_core_clk = clk_get_sys("mxc_spdif.0", NULL);
 	clk_put(wand_spdif.spdif_core_clk);
 	imx6q_add_spdif(&wand_spdif);                
 	imx6q_add_spdif_dai();
 	imx6q_add_spdif_audio_device();
+#endif
 }
 
 
