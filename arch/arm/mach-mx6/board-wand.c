@@ -1014,7 +1014,7 @@ static void __init wand_reserve(void) {
 	phys_addr_t phys;
         
 	if (wand_gpu_pdata.reserved_mem_size) {
-		phys = memblock_alloc_base(wand_gpu_pdata.reserved_mem_size, SZ_4K, 2 * SZ_1G);
+		phys = memblock_alloc_base(wand_gpu_pdata.reserved_mem_size, SZ_4K, SZ_2G);
 		memblock_remove(phys, wand_gpu_pdata.reserved_mem_size);
 		wand_gpu_pdata.reserved_mem_base = phys;
 	}
