@@ -1661,7 +1661,7 @@ gckVIDMEM_Lock(
     gctBOOL acquired = gcvFALSE;
     gctBOOL locked = gcvFALSE;
     gckOS os = gcvNULL;
-    gctBOOL needMapping = gcvFALSE;
+    gctBOOL needMapping;
     gctUINT32 baseAddress;
 
     gcmkHEADER_ARG("Node=0x%x", Node);
