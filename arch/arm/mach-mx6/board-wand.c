@@ -514,6 +514,7 @@ static void wand_init_hdmi(void) {
 	mxc_iomux_set_gpr_register(0, 0, 1, 1);
 }
 
+#ifdef CONFIG_IMX_HAVE_PLATFORM_IMX_MIPI_CSI
 /****************************************************************************
  *
  * MIPI CSI
@@ -628,8 +629,8 @@ static struct mipi_csi2_platform_data wand_mipi_csi2_platform_data = {
 };
 
 /* Wandboard MIPI CSI init function */
-static void __init wand_init_mipi_csi(void){
-
+static void __init wand_init_mipi_csi(void)
+{
 	pr_debug("%s\n", __func__);
 	
 	/* Add CSI2 */
@@ -640,6 +641,12 @@ static void __init wand_init_mipi_csi(void){
 	i2c_register_board_info(1, wand_mipi_csi_i2c_board_info,
 		ARRAY_SIZE(wand_mipi_csi_i2c_board_info));
 }
+#else
+static void __init wand_init_mipi_csi(void)
+{
+	return;
+}
+#endif
 
 /****************************************************************************
  *                                                                          
@@ -1181,7 +1188,7 @@ static void __init wand_board_init(void) {
 			capture_data[i].ipu = 0;
 		imx6q_add_v4l2_capture(i, &capture_data[i]);
 	}
-        wand_init_mipi_csi();
+	wand_init_mipi_csi();
 	wand_init_lcd();
 	wand_init_wifi();
 	wand_init_bluetooth();
