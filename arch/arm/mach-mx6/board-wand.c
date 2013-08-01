@@ -514,7 +514,7 @@ static void wand_init_hdmi(void) {
 	mxc_iomux_set_gpr_register(0, 0, 1, 1);
 }
 
-#ifdef CONFIG_IMX_HAVE_PLATFORM_IMX_MIPI_CSI
+#ifdef CONFIG_IMX_HAVE_PLATFORM_IMX_MIPI_CSI2
 /****************************************************************************
  *
  * MIPI CSI
@@ -523,6 +523,7 @@ static void wand_init_hdmi(void) {
 static void wand_mipi_sensor_io_init(void) {
 	
 	struct clk *mipi_csi_mclk;
+        int rate;
 
 	IMX6_SETUP_PAD( GPIO_3__CCM_CLKO2 );	/* Camera clock */
 	IMX6_SETUP_PAD( KEY_COL4__GPIO_4_14 );  /* Camera reset */
@@ -536,13 +537,11 @@ static void wand_mipi_sensor_io_init(void) {
         gpio_request(WAND_MIPICSI_PWN, "cam-pwdn");
         gpio_direction_output(WAND_MIPICSI_PWN, 1);
 
-        int rate;
-
 	/* Master clock for the sensor */
         mipi_csi_mclk = clk_get(NULL, "clko2_clk");
         if (IS_ERR(mipi_csi_mclk)) {
                 pr_err("can't get CLKO2 clock.\n");
-                return PTR_ERR(mipi_csi_mclk);
+                return;
         }
         
 	rate = clk_round_rate(mipi_csi_mclk, 24000000);
@@ -628,10 +627,29 @@ static struct mipi_csi2_platform_data wand_mipi_csi2_platform_data = {
 	.pixel_clk = "emi_clk",
 };
 
+
+static struct fsl_mxc_capture_platform_data capture_data[] = {
+#if defined(CONFIG_MXC_CAMERA_OV5640_MIPI) || defined(CONFIG_MXC_CAMERA_OV5640_MIPI_MODULE)
+	{
+		.ipu = 0,
+		.csi = 0,
+		.mclk_source = 0,
+		.is_mipi = 1,
+	},
+#endif
+};
+
 /* Wandboard MIPI CSI init function */
-static void __init wand_init_mipi_csi(void)
-{
+static void __init wand_init_mipi_csi(void) {
+	int i;
 	pr_debug("%s\n", __func__);
+
+	/* Initialize IPU Capture Path */
+	for (i = 0; i < ARRAY_SIZE(capture_data); i++) {
+		if (!cpu_is_mx6q())
+			capture_data[i].ipu = 0;
+		imx6q_add_v4l2_capture(i, &capture_data[i]);
+	}
 	
 	/* Add CSI2 */
 	imx6q_add_mipi_csi2(&wand_mipi_csi2_platform_data);
@@ -642,8 +660,7 @@ static void __init wand_init_mipi_csi(void)
 		ARRAY_SIZE(wand_mipi_csi_i2c_board_info));
 }
 #else
-static void __init wand_init_mipi_csi(void)
-{
+static void __init wand_init_mipi_csi(void) {
 	return;
 }
 #endif
@@ -1166,19 +1183,7 @@ static void __init wand_reserve(void) {
  *                                                                            
  *****************************************************************************/
 
-static struct fsl_mxc_capture_platform_data capture_data[] = {
-#if defined(CONFIG_MXC_CAMERA_OV5640_MIPI) || defined(CONFIG_MXC_CAMERA_OV5640_MIPI_MODULE)
-	{
-		.ipu = 0,
-		.csi = 0,
-		.mclk_source = 0,
-		.is_mipi = 1,
-	},
-#endif
-};
-
 static void __init wand_board_init(void) {
-	int i;
 	wand_init_dma();
 	wand_init_uart();
 	wand_init_sd();
@@ -1188,11 +1193,6 @@ static void __init wand_board_init(void) {
 	wand_init_usb();
 	wand_init_ipu();
 	wand_init_hdmi();
-	for (i = 0; i < ARRAY_SIZE(capture_data); i++) {
-		if (!cpu_is_mx6q())
-			capture_data[i].ipu = 0;
-		imx6q_add_v4l2_capture(i, &capture_data[i]);
-	}
 	wand_init_mipi_csi();
 	wand_init_lcd();
 	wand_init_wifi();
