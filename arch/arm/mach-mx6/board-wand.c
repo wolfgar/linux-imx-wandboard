@@ -647,7 +647,7 @@ static struct mipi_csi2_platform_data wand_mipi_csi2_platform_data = {
 
 
 static struct fsl_mxc_capture_platform_data capture_data[] = {
-#if defined(CONFIG_MXC_CAMERA_OV5640_MIPI) ||
+#if defined(CONFIG_MXC_CAMERA_OV5640_MIPI) || \
 		defined(CONFIG_MXC_CAMERA_OV5640_MIPI_MODULE)
 	{
 		.ipu = 0,
