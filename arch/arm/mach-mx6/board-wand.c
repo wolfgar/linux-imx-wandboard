@@ -601,7 +601,7 @@ static void wand_mipi_sensor_io_init(void)
 	 */
 
 	if (cpu_is_mx6q())
-		mxc_iomux_set_gpr_register(1, 19, 1, 1);
+		mxc_iomux_set_gpr_register(1, 19, 1, 0);
 	else if (cpu_is_mx6dl())
 		mxc_iomux_set_gpr_register(13, 0, 3, 0);
 }
