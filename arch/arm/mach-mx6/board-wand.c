@@ -523,6 +523,8 @@ static const struct i2c_board_info wand_hdmi_i2c_info = {
 
 static void wand_init_hdmi(void)
 {
+	/* Setup CEC signal on KEY_ROW2 pin */
+	IMX6_SETUP_PAD(KEY_ROW2__HDMI_TX_CEC_LINE);
 	i2c_register_board_info(0, &wand_hdmi_i2c_info, 1);
 	imx6q_add_mxc_hdmi_core(&wand_hdmi_core_data);
 	imx6q_add_mxc_hdmi(&wand_hdmi_data);
