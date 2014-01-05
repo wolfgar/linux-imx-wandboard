@@ -985,8 +985,7 @@ static __init void wand_init_external_gpios(void)
 	gpio_export(IMX_GPIO_NR(3, 26), true);
 	gpio_request(IMX_GPIO_NR(3, 8), "external_gpio_6");
 	gpio_export(IMX_GPIO_NR(3, 8), true);
-	gpio_request(IMX_GPIO_NR(4, 5), "external_gpio_7");
-	gpio_export(IMX_GPIO_NR(4, 5), true);
+	//RvdB let lirc use IMX_GPIO_NR(4, 5) "external_gpio_7"
 }
 
 
